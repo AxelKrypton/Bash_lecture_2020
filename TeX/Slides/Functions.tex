@@ -1,0 +1,507 @@
+%-------------------------------%
+%  Author: Alessandro Sciarra   %
+%    Date: 23 Aug 2019          %
+%-------------------------------%
+
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{Functions, finally! Overview}
+    \vspace{-4mm}
+    \begin{itemize}
+        \item Functions are the last basic Bash feature we'll learn
+              \begin{itemize}
+                  \item They give you an incredible opportunity to structure and increase readability of your script
+                  \item They can be used to split large script across multiple files in an elegant way
+                  \item \alert{Learn them well, for real!}
+              \end{itemize}
+        \item \PB{Functions are a tricky world!}
+        \item They have several features that we might call \textbf{issues} if compared to other languages
+        \item[\PT{$\bullet$}] Indeed, functions in Bash are not as powerful as we might expect
+              \begin{itemize}
+                  \item[\PT{$\to$}] Return value
+                  \item[\PT{$\to$}] Reusability
+                  \item[\PT{$\to$}] Scope
+                  \item[\PT{$\to$}] I/O + \ldots
+              \end{itemize}
+              \begin{varblock}{quote}[0.9\textwidth]{}[Greg's Wiki]
+                  Don't bite the newbie for not understanding all this. Shell functions are totally f\texttt{***}ed. \\[-1.3ex] ~
+              \end{varblock}
+    \end{itemize}
+    \vspace{-4mm}
+    \begin{varblock}{example}[1.03\textwidth]{\textbf{Do not be scared!}}
+        Learn, understand and use functions for what they are, not for what you would like them to be!
+    \end{varblock}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Basic syntax}
+    \vspace{-2mm}
+    \begin{lstlisting}[style=MyBash, numbers=none]
+        # POSIX compliant syntax
+        NAME () |+COMPOUND-COMMAND [ REDIRECTIONS ]+|
+        # Totally equivalent syntax (in Bash), but not POSIX
+        function NAME |+[()] COMPOUND-COMMAND [ REDIRECTIONS ]+|
+    \end{lstlisting}
+    \vspace{1mm}
+    \begin{description}[X]
+        \setlength{\itemsep}{3mm}
+        \item[\textbf{NAME:}] ~\\
+            A \textbf{sane} function name should be an alphanumeric string, maybe containing underscore and not starting with a number.
+            However, insane names are accepted in Bash and, in principle, names like \PB{\texttt{:}} or \PB{\texttt{[\}\{}} are allowed.
+            But please, avoid them! Really!! $\;${\tiny\URL[PB]{https://stackoverflow.com/a/44041384}{Exploring allowed names}}
+        \item[\textbf{COMPOUND-COMMAND:}] ~\\
+            The body of a function can be any compound command.
+            \begin{itemize}
+                \item \bash|{ list; }| \alert{$\;\longleftarrow\;$ Use this if you do not have a reason to use a different one}
+                \item \bash|(list)| or \bash|((expression))| or \bash|[[ expression ]]|
+            \end{itemize}
+            %This is typically \bash|{ list; }|, but three other forms of compound commands are technically allowed: \bash|(list)|, \bash|((expression))|, and \bash|[[ expression ]]|.
+        \item[\textbf{REDIRECTIONS:}] ~\\
+            They take place when the function is called and they refer to the whole compound-command.
+    \end{description}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Functions: The most basic example}
+    \vspace{-5mm}
+    \begin{varblock}{example}[0.95\textwidth]{Just accomplish a \textbf{detached} task}
+        Whenever a block of code can be executed as standalone, without needing either input information nor variables, it is straightforward to include it in a dedicated function
+    \end{varblock}
+    \begin{lstlisting}[style=MyBash, xrightmargin=1mm, xleftmargin=1mm]
+        #!/bin/bash
+        
+        function CreateListOfFiles()
+        {
+            printf "#%19s %20s %15s %20s %20s %6s     %s\n" \
+                   "user" "group" "permissions"               \
+                   "size(KB)" "permissions" "type" "path"
+            find "${PWD}" |+-printf+| "%20u %20g %15m %20k %20M %6y     %p\n"
+        }
+    \end{lstlisting}
+    \begin{varblock}{}[0.9\textwidth]{Note}
+        This will do absolutely nothing when run. This is because it has only been stored in memory, much like a variable, but it has not yet been called.
+    \end{varblock}
+    \begin{lstlisting}[style=MyBash, firstnumber=10, xrightmargin=1mm, xleftmargin=1mm]
+        CreateListOfFiles
+    \end{lstlisting}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Variables in functions and their scopes}
+    \vspace{-4mm}
+    \begin{overlayarea}{\textwidth}{0.7\textheight}
+        \begin{itemize}
+            \item Variable in Bash are by definition \alert{\textbf{global}}!
+            \item Variables declared using the \bash|local| builtin have a lifetime limited to the function scope
+            \item Bash uses \textbf{dynamic scoping} to control a variable's visibility within functions
+                  \begin{itemize}
+                      \item In a function all variables visible in the caller are visible and might be changed
+                      \item Declaring a local variable with the same name of an already existing variable shadows the variable from the caller, whose value cannot be retrieved from within the function.
+                  \end{itemize}
+            \item<only@3-> Unless you have a reason not to do so, declare all variables in functions as \bash|local|
+            \item<only@3-> Do not assign a value to a local variable at declaration, because you might obfuscate/loose an exit code!
+            \item<only@4-> \PP{If a variable at the current local scope is unset, it will remain so until it is reset in that scope or until the function returns.
+                           Once the function returns, any instance of the variable at a previous scope will become visible.}\\
+                           \textbf{However,} \PB{if the unset acts on a variable at a previous scope, any instance of a variable with that name that had been shadowed will become visible!}
+        \end{itemize}
+        \begin{onlyenv}<1>
+            \begin{lstlisting}[style=MyBash]
+                #!/bin/bash
+
+                LevelOne() {
+                    LevelTwo
+                    echo "In ${FUNCNAME}, aVar = ${aVar}"
+                }
+                LevelTwo() {
+                    local aVar; aVar="${FUNCNAME} local"
+                    LevelThree
+                }
+                LevelThree() { echo "In ${FUNCNAME}, aVar = ${aVar}"; }
+
+                aVar='global'; LevelOne
+            \end{lstlisting}
+        \end{onlyenv}
+        \begin{onlyenv}<2>
+            \begin{lstlisting}[style=MyBash, firstnumber=14]
+                $ ./script.bash
+                |+In LevelThree, aVar = LevelTwo local
+                In LevelOne, aVar = global+|
+            \end{lstlisting}
+        \end{onlyenv}
+        \begin{onlyenv}<3>
+            \begin{lstlisting}[style=MyBash, style=oddnumbers, xleftmargin=1mm, xrightmargin=1mm, firstnumber=16]
+                $ function Test { aVar="$(exit 1)"; echo $?; }; Test
+                1  # Fine, but we pollute caller with 'aVar' variable
+                $ function Test { local aVar="$(exit 1)"; echo $?; }; Test
+                0  # <- local's exit code!
+                $ function Test { local aVar; aVar="$(exit 1)"; echo $?; }; Test
+                1  # GOOD CODE
+            \end{lstlisting}
+        \end{onlyenv}
+    \end{overlayarea}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{Passing arguments to functions}
+    \vspace{-3mm}
+    \begin{varblock}{example}[0.8\textwidth]{So far so good}
+        Delegating tasks to functions, even if the task requires variables, is quite straightforward, provided one keeps scope rules in mind
+    \end{varblock}
+    \begin{varblock}{quote}[0.95\textwidth]{The Pandora's box}[Bash manual]<2->
+        When a function is executed, the arguments to the function become the positional parameters during its execution.
+        The special parameter \texttt{\#} that expands to the number of positional parameters is updated to reflect the change.
+        Special parameter 0 is unchanged.\\[-1.5ex] ~
+    \end{varblock}
+    \vspace{-2mm}
+    \begin{itemize}[<3->]
+        \item Arguments to functions are meant to provide \textbf{input} to a function
+        \item Bash strictly uses \PP{call-by-value} semantics
+        \item You can't pass arguments ``by reference''\\[-0.5ex] {\tiny\{~at least not until Bash 4.3 (and even there the \bash|declare -n| mechanism has serious security flaws)~\}}
+        \item \alert{Passing the name of a variable to a function}, which should use it, requires \bash|eval| acrobatics and it \alert{should be as far as possible avoided!}
+    \end{itemize}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Passing arguments to functions: Example}
+    \vspace{-2mm}
+    \begin{onlyenv}<1>
+        \begin{lstlisting}[style=MyBash]
+            #!/bin/bash
+
+            function SecondsToTimeStringWithDays()
+            {
+                local inputTime days hours minutes seconds
+                inputTime=$1
+                ((    days=(inputTime)/86400 ))
+                ((   hours=(inputTime - days*86400)/3600 ))
+                (( minutes=(inputTime - days*86400 - hours*3600)/60 ))
+                (( seconds=inputTime%60 ))
+                printf "%d-%02d:%02d:%02d\n" \
+                       "${days}" "${hours}" "${minutes}" "${seconds}"
+            }
+
+            for example in 31536000 86400 3600; do
+                SecondsToTimeStringWithDays ${example}
+            done
+        \end{lstlisting}
+        \begin{lstlisting}[style=MyBash, aboveskip=2mm, firstnumber=18]
+            $ ./scriptAbove
+            |+365-00:00:00+|
+            |+1-00:00:00+|     # What is bad in the function above?
+            |+0-01:00:00+|
+        \end{lstlisting}
+    \end{onlyenv}
+    \begin{onlyenv}<2>
+        \begin{lstlisting}[style=MyBash, firstnumber=22]
+            #!/bin/bash
+
+            function SecondsToTimeStringWithDays() # Better code!
+            {
+                if [[ ! ${1} =~ ^[1-9][0-9]*$ ]]; then
+                   echo "ERROR: Function ${FUNCNAME} wrongly called!"
+                   return 1
+                fi
+                local inputTime days hours minutes seconds
+                inputTime=$1
+                ((    days=(inputTime)/86400 ))
+                ((   hours=(inputTime - days*86400)/3600 ))
+                (( minutes=(inputTime - days*86400 - hours*3600)/60 ))
+                (( seconds=inputTime%60 ))
+                printf "%d-%02d:%02d:%02d\n" \
+                       "${days}" "${hours}" "${minutes}" "${seconds}"
+            }
+
+            for example in 31536000 86400 3600 ''; do
+                SecondsToTimeStringWithDays ${example}
+            done
+        \end{lstlisting}
+    \end{onlyenv}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{The \bash|return| builtin and functions' exit code}
+    \vspace{-4mm}
+    \begin{varblock}{quote}[0.6\textwidth]{Functions' exit code}
+        \textnormal{When executed, the exit status of a function is the exit status of the \textbf{last command executed} in the body.}
+    \end{varblock}
+    \begin{lstlisting}[style=MyBash, numbers=none, belowskip=-6mm]
+        $ help return
+        |+return: return [n]+|           # ATTENTION: 0 <= N <=255
+        |+Return from a shell function.
+
+        Causes a function or sourced script to exit with the
+        return value specified by N. If N is omitted, the
+        return status is that of the last command executed
+        within the function or script.
+
+        Exit Status:
+        Returns N, or failure if the shell is not executing
+        a function or script.+|
+    \end{lstlisting}
+    \medskip
+    \begin{varblock}{alert}[0.65\textwidth]{}
+        \large \alert{Do not use \bash|return| to retrieve the function result!}
+    \end{varblock}
+    \vspace{-1mm}
+    \begin{varblock}{example}[0.85\textwidth]{}
+        \PS{Use \bash|return| to early terminate a function and/or to give back an exit code!}
+    \end{varblock}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{How do I return something from a function?}
+    \vspace{-18.2mm}
+    \begin{overlayarea}{\textwidth}{0.7\textheight}
+        \begin{columns}[c]
+            \begin{column}{0.55\textwidth}
+            \end{column}
+            \begin{column}{0.35\textwidth}
+                \begin{varblock}{alert}[\textwidth]{}<2->
+                    \Large It's simple: \alert{You don't!}
+                \end{varblock}
+            \end{column}
+        \end{columns}
+        \smallskip
+        \setbeamertemplate{itemize/enumerate subbody begin}{\scriptsize}
+        \begin{enumerate}
+            \item<only@3-> Capturing standard output
+                           \begin{itemize}[<only@{3,7}>]
+                               \item[\PT{\ding{55}}] the function is executed in a subshell, i.e. variable assignments not seen in the caller
+                               \item[\PT{\ding{55}}] \textbf{everything} printed by the function is captured (debug output!? $\to$ use stderr)
+                               \item[\PS{\ding{51}}] good solution if performance is not critical
+                           \end{itemize}
+            \item<only@4-> Global variables
+                           \begin{itemize}[<only@{4,7}>]
+                               \item[\PS{\ding{51}}] the function is \textbf{not} executed in a subshell $\to$ potentially \PS{much faster}
+                               \item[\PT{\ding{55}}] if the function is executed in a subshell, the method fails!
+                               \item[\PT{\ding{55}}] the function cannot be used in a pipeline (as in any implicit subshell)
+                           \end{itemize}
+            \item<only@5-> Writing to a file
+                           \begin{itemize}[<only@{5,7}>]
+                               \item[\PT{\ding{55}}] you need to manage a temporary file, which is always inconvenient
+                               \item[\PT{\ding{55}}] there must be a writable directory somewhere and sufficient space to hold the data therein
+                               \item[\PS{\ding{51}}] it will work regardless of whether your function is executed in a subshell
+                           \end{itemize}
+            \item<only@6-> Dynamically scoped variables
+                           \begin{itemize}
+                               \item[\PT{\ding{55}}] if the function is executed in a subshell, the method fails!
+                               \item[\PT{\ding{55}}] this technique doesn't work with recursive functions
+                               \item[\PS{\ding{51}}] global variable namespace isn't polluted by the function return variable
+                           \end{itemize}
+        \end{enumerate}
+        \begin{onlyenv}<3>
+            \begin{lstlisting}[style=MyBash, numbers=none]
+                ExampleFunction() {
+                    echo "running foo()..."  >&2
+                    echo "this is my data"
+                }
+                aVar=$(ExampleFunction)
+                echo "ExampleFunction returned '${aVar}'"
+            \end{lstlisting}
+        \end{onlyenv}
+        \begin{onlyenv}<4>
+            \begin{lstlisting}[style=MyBash, numbers=none]
+                ExampleFunction() {
+                    globalVar="this is my data"
+                }
+                ExampleFunction
+                echo "ExampleFunction returned '${globalVar}'"
+            \end{lstlisting}
+        \end{onlyenv}
+        \begin{onlyenv}<5>
+            \begin{lstlisting}[style=MyBash, numbers=none]
+                ExampleFunction() {
+                    echo "this is my data" > "$1"
+                }
+                # This is NOT solid code to handle temp files! @|\URL[comment-color]{http://mywiki.wooledge.org/BashFAQ/062}{Solid way}[background-color]|@
+                tmpfile=$(mktemp)   # GNU/Linux
+                ExampleFunction "${tmpfile}"
+                echo "ExampleFunction returned '$(cat < "@|\tc{strings-color}{\$\{tmpfile\}}|@" )'"
+                rm "${tmpfile}"
+            \end{lstlisting}
+            \FrameRemark[5]{If this were a real program, there would have been error checking, and a trap.}
+        \end{onlyenv}
+        \begin{onlyenv}<6>
+            \begin{lstlisting}[style=MyBash, numbers=none, emph={[7]notGlobalVar},]
+                ExampleFunction_implementation() {
+                   notGlobalVar="this is my data"
+                }
+                ExampleFunction() {
+                    local notGlobalVar; ExampleFunction_implementation
+                    # Do here something with 'notGlobalVar'
+                    echo "In ExampleFunction, got '${notGlobalVar}'"
+                }
+                # Here at the global scope, 'notGlobalVar' is not visible
+                ExampleFunction
+                echo "ExampleFunction returned '${notGlobalVar}'"
+            \end{lstlisting}
+        \end{onlyenv}
+        \vspace{-3mm}
+        \begin{varblock}{}[0.7\textwidth]{Choose with care}<only@7>
+            Use the approach you prefer depending on the situation!
+        \end{varblock}
+    \end{overlayarea}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Splitting large scripts across multiple files}{A Bash script should not be \textbf{too} large, though}
+    \vspace{-3mm}
+    \begin{onlyenv}<1>
+        \begin{varblock}{example}[0.9\textwidth]{Declaring a function does not mean to run it}
+            You can collect functions in a separate file, which is meant to be sourced at need!
+        \end{varblock}
+        \begin{lstlisting}[style=MyBash, numbers=none]
+            # Collection of tools
+
+            function ExtractColumnFromFile()
+            {
+                # ...
+            }
+
+            function CalculateSizeOfFiles()
+            {
+                # ...
+            }
+
+            function ReportOnLargestDirectories()
+            {
+                # ...
+            }
+        \end{lstlisting}
+    \end{onlyenv}
+    \begin{onlyenv}<2>
+        \begin{lstlisting}[style=MyBash, numbers=none]
+            #!/bin/bash
+
+            source /home/sciarra/Script/UtilityFunctions.bash
+            source /home/sciarra/Script/UtilityFunctions_nice.bash
+            source /home/sciarra/Script/UtilityFunctions_cool.bash
+
+            # Call to functions (only, maybe)
+        \end{lstlisting}
+        \begin{itemize}
+            \item \PP{As long as the sourced files contain functions only},
+                  \begin{itemize}
+                      \item the \textbf{sourcing order does not matter} and
+                      \item functions in a file can even use functions in another file!
+                  \end{itemize}
+            \item The shebang can/should be included in the main file only!
+            \item Prevent auxiliary files from being run, only sourced!
+        \end{itemize}
+        \begin{lstlisting}[style=MyBash, numbers=none, xleftmargin=1mm, xrightmargin=1mm]
+            if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+              echo "Script \"${BASH_SOURCE[0]}\" can only been sourced!" 2>&1
+              exit -1
+            fi
+        \end{lstlisting}
+    \end{onlyenv}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Functions: Miscellaneous}
+    \begin{overlayarea}{\textwidth}{0.7\textheight}
+        \begin{onlyenv}<1>
+            \vspace{-3mm}
+            \begin{itemize}
+                \item Functions can be marked as read-only using the \bash|readonly| builtin
+                \item Functions can be unset via \,\bash|unset -f|
+                \item Functions can be recursive
+                      \begin{lstlisting}[style=MyBash, xrightmargin=12mm, aboveskip=2mm, belowskip=-6mm]
+                          function CountTill5From()
+                          {
+                              if [[ $1 < 5 ]]; then
+                                  echo $1; CountTill5From $(($1 + 1))
+                              fi
+                          }
+                      \end{lstlisting}
+                \item The \bash|FUNCNEST| variable may be used to limit the depth of the function call stack and restrict the number of function invocations
+                      \,{\tiny\{~By default, no limit is placed on the number of recursive calls~\}}
+            \end{itemize}
+            \begin{lstlisting}[style=MyBash, xrightmargin=-2mm, xleftmargin=2mm, aboveskip=0mm, numbers=none]
+                $ FUNCNEST=2; CountTill5From()
+                |+1
+                2
+                bash: CountTill5From: maximum function nesting level exceeded (2)+|
+                $ unset -v FUNCNEST
+            \end{lstlisting}
+        \end{onlyenv}
+        \begin{onlyenv}<2->
+            \vspace{-9mm}
+            \begin{varblock}{alert}[0.9\textwidth]{About recursion}
+                \begin{itemize}
+                    \item \emph{\guillemotleft To iterate is human, to recur, divine.\guillemotright} -- L. Peter Deutsch
+                    \item There are cases where it is needed
+                    \item In Bash rarely, though
+                    \item The fact that by default in Bash there is no limit to the number of function invocations is something to have clear in mind!
+                    \item For example, what does the following code do? \,\alert{\textbf{DON'T RUN IT!}}
+                          \begin{lstlisting}[style=MyBash, numbers=none, aboveskip=2mm, belowskip=-6mm, xrightmargin=21mm]
+                              :(){ :|:& };:   # Do NOT run this line!
+                          \end{lstlisting}
+                          \begin{uncoverenv}<3>
+                              It is equivalent to
+                              \begin{lstlisting}[style=MyBash, numbers=none, aboveskip=2mm, belowskip=-5mm, xrightmargin=21mm]
+                                  # Do NOT run this code!
+                                  function bomb() { bomb | bomb & }; bomb
+                              \end{lstlisting}
+                          \end{uncoverenv}
+                \end{itemize}
+            \end{varblock}
+            \vspace{-1mm}
+            \begin{varblock}{quote}[\textwidth]{}[Wikipedia]<only@3>
+                \small A \textbf{fork bomb} is a denial-of-service attack wherein a process continually replicates itself to deplete available system resources,
+                \textbf{slowing down or crashing the system} due to resource starvation.\\[-1.5ex] ~
+            \end{varblock}
+        \end{onlyenv}
+    \end{overlayarea}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{A last big warning: The \bash|eval| builtin}
+    \vspace{-3mm}
+    \begin{overlayarea}{\textwidth}{0.64\textheight}
+        \begin{onlyenv}<1>
+            \begin{lstlisting}[style=MyBash, numbers=none, xleftmargin=2mm, xrightmargin=2mm]
+                $ help eval
+                |+eval: eval [arg ...]
+                Execute arguments as a shell command.
+
+                Combine ARGs into a single string, use the result as input
+                to the shell, and execute the resulting commands.
+
+                Exit Status:
+                Returns exit status of command or success if command is null.+|
+            \end{lstlisting}
+            \begin{itemize}
+                \item \emph{\guillemotleft\textnormal{\bash|eval|} is a common misspelling of \textbf{evil}\guillemotright} -- Greg's Wiki
+                \item It causes your code to be parsed twice instead of once; this means that, for example, if your code has variable references in it, the shell's parser will evaluate the contents of that variable.
+                      This can lead to unexpected results!
+            \end{itemize}
+        \end{onlyenv}
+        \begin{onlyenv}<2->
+            \begin{lstlisting}[style=MyBash, emph={[7]_fifth_array}]
+                # This code is evil and should never be used!
+                function FifthElementOf() {
+                  local _fifth_array=$1
+                  eval echo "\"The fifth element is \${$_fifth_array[4]}\""
+                }
+            \end{lstlisting}
+            \smallskip
+            \begin{lstlisting}[style=MyBash, emph={[7]_fifth_array}, belowskip=-5mm, firstnumber=6]
+                # Source/define the function above
+                $ array=(zero one two three four five)
+                $ FifthElementOf array
+                |+The fifth element is four+|
+            \end{lstlisting}
+            You might be thinking -- \PP{``It looks OK, isn't it? What's wrong man?''} \uncover<3->{-- Consider then:}
+        \end{onlyenv}
+        \begin{onlyenv}<3->
+            \begin{lstlisting}[style=MyBash, emph={[7]_fifth_array}, aboveskip=2mm, firstnumber=10]
+                $ FifthElementOf 'x}"; da@|\tikzmark{date}|@te; #'
+                |+The fifth element is
+                Wed 28 Aug 14:43:59 CEST 2019+|  # AAAAAARRRGGGGHHH!!!!
+            \end{lstlisting}
+        \end{onlyenv}
+    \end{overlayarea}
+    {\Large\begin{varblock}{alert}[\textwidth]{Take-home lesson}<3->
+        An inappropriate use of \bash|eval| can lead to \alert{arbitrary code execution}!
+    \end{varblock}}
+    \begin{tikzpicture}[remember picture, overlay, scope on=<4>]
+        \path[from] (date) edge[out=270, in=180] node[pos=1, right] {\color{red}What about $\;$ \bash|rm -rf /| $\;$ here?} ++(15mm,-1mm);
+    \end{tikzpicture}
+    \FrameRemark{Advanced, but \URL[PB]{http://mywiki.wooledge.org/BashFAQ/048}{very informative article} which you should spend some time at some point on.}
+\end{frame}
+
+
+
+
+
+

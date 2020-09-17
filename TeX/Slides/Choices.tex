@@ -1,0 +1,172 @@
+%-------------------------------%
+%  Author: Alessandro Sciarra   %
+%    Date: 8 Jul 2019           %
+%-------------------------------%
+
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{The \,\bash|case|\, keyword}
+    \vspace{-3mm}
+    Completely equivalent to a \bash|if-elif-else-fi| construct, but often handy:
+    \medskip
+    \begin{lstlisting}[style=MyBash, numbers=none, belowskip=-5mm]
+        case WORD in
+            |+[ [(] pattern [| pattern]...) command-list ;;]...+|
+        esac
+    \end{lstlisting}
+    \begin{overlayarea}{\textwidth}{\textheight}
+        \begin{onlyenv}<1>
+            \begin{itemize}
+                \setlength{\itemsep}{0mm}
+                \item The command-list corresponding to the first pattern that matches word is executed
+                \item The match is performed according \PP{Pattern Matching} rules
+                \item The \bash{|} is used to separate multiple patterns
+                \item The \bash|)| operator terminates a pattern list
+                \item A list of patterns and an associated command-list is known as a \textbf{clause}
+            \end{itemize}
+            \vspace{-5mm}
+            \begin{center}
+                \alert{\textbf{Before matching is attempted:}}\\[0.3em]
+                \tikzmark{wordStart}tilde expansion\tikzmark{patternStart}\\
+                parameter expansion\\
+                command substitution\\
+                arithmetic expansion\tikzmark{patternEnd}\\
+                \tikzmark{wordEnd}quote removal
+            \end{center}
+        \end{onlyenv}
+        \begin{tikzpicture}[remember picture, overlay, PP]
+            \begin{scope}[scope on=<1>]
+                \draw[very thick, decorate, decoration={brace,amplitude=6pt}] (patternStart -| patternEnd) ++(5mm,1mm) -- ($(patternEnd)+(5mm,-1mm)$)
+                          node[midway, right=3mm, text width=18mm, align=center] {Pattern under-goes};
+                \draw[very thick, decorate, decoration={brace,amplitude=6pt}] (wordEnd  -| wordStart) ++(-8mm,-1mm) -- ($(wordStart)+(-8mm,1mm)$)
+                          node[midway, left=3mm, text width=18mm, align=center] {\texttt{WORD} under-goes};
+            \end{scope}
+        \end{tikzpicture}
+        \begin{onlyenv}<2>
+            \vspace{-3mm}
+            \begin{lstlisting}[style=MyBash]
+                case ${LANG} in
+                    en* )
+                        echo 'Hello!' ;;
+                    fr* )
+                        echo 'Salut!' ;;
+                    de* )
+                        echo 'Hallo!' ;;
+                    it* )
+                        echo 'Ciao!' ;;
+                    es* )
+                        echo 'Hola!' ;;
+                    C | POSIX )
+                        echo 'Hello World!' ;;
+                    *)
+                        echo 'I do not speak your language.' ;;
+                esac
+            \end{lstlisting}
+        \end{onlyenv}
+    \end{overlayarea}
+    \FrameRemark{Using \bash|;&| or \bash|;;&| instead of \bash|;;| allows to execute the command list or to test the patterns of the next clause, respectively.}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{The \,\bash|select|\, keyword}
+    \vspace{-3mm}
+    A convenient statement for generating a menu of choices that the user can choose from:
+    \medskip
+    \begin{lstlisting}[style=MyBash, numbers=none, belowskip=-5mm]
+        select NAME in WORDS; do
+            # Body with commands -> break needed to terminate
+        done
+    \end{lstlisting}
+    \begin{overlayarea}{\textwidth}{\textheight}
+        \begin{onlyenv}<1>
+            \begin{itemize}
+                %\setlength{\itemsep}{0mm}
+                \item The list of words following in is expanded, generating a list of items
+                \item The set of expanded words is printed on the \alert{standard error}, each preceded by a number
+                \item If the \bash|in WORDS| is omitted, the positional parameters are printed, as if \bash{in "$@"}
+                \item The \bash|PS3| prompt is then displayed and a line is read from the standard input:
+                      \begin{itemize}
+                          \item[$\circ$] If the line consists of a number corresponding to one of the displayed words, then the value of \bash|NAME| is set to that word
+                          \item[$\circ$] If the line is empty, the words and prompt are displayed again
+                          \item[$\circ$] Any other value read causes \bash|NAME| to be set to null
+                          \item[$\circ$] The line read is saved in the variable \bash|REPLY|
+                      \end{itemize}
+                \item It is good practice not to \bash|break| if the user typed something meaningless!
+            \end{itemize}
+        \end{onlyenv}
+        \begin{onlyenv}<2>
+            \begin{lstlisting}[style=MyBash]
+                $ select file in *; do
+                >     echo "You picked \"${file}\" (${REPLY})"
+                >     break
+                > done
+                |+1) Day_1.tex
+                2) Day_2.tex
+                3) Day_3.tex
+                #? 2
+                You picked "Day_2.tex" (2)+|
+                $ echo "After select: \"${file}\" (${REPLY})"
+                |+After select: "Day_2.tex" (2)+|
+                $ unset file
+            \end{lstlisting}
+        \end{onlyenv}
+        \begin{onlyenv}<3>
+            \begin{lstlisting}[style=MyBash]
+                $ select file in *; do
+                >     echo "You picked \"${file}\" (${REPLY})"
+                >     break;
+                > done
+                |+1) Day_1.tex
+                2) Day_2.tex
+                3) Day_3.tex
+                #? dlfagfdsu
+                You picked "" (dlfagfdsu)+|
+                $ echo "After select: \"${file}\" (${REPLY})"
+                |+After select: "" (dlfagfdsu)+|
+                $ unset file
+            \end{lstlisting}
+            \medskip
+            \begin{varblock}{alerted}[0.52\textwidth]{}
+                It is always important to \alert{\textbf{validate the answer}}!
+            \end{varblock}
+        \end{onlyenv}
+        \begin{onlyenv}<4>
+            \begin{lstlisting}[style=MyBash]
+                $ select file in *; do
+                >     if [[ ${file} != '' ]]; then  # GOOD PRACTICE
+                >         echo "You picked \"${file}\" (${REPLY})"
+                >         break;
+                >     fi
+                > done; unset file
+                |+1) Day_1.tex
+                2) Day_2.tex
+                3) Day_3.tex
+                #? dlfagfdsu
+                #? dgasdf
+                #? 4
+                #? 231345134
+                #? 2
+                You picked "Day_2.tex" (2)
+            \end{lstlisting}
+        \end{onlyenv}
+    \end{overlayarea}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

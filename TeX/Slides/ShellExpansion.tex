@@ -1,0 +1,560 @@
+%-------------------------------%
+%  Author: Alessandro Sciarra   %
+%    Date: 25 Jun 2019          %
+%-------------------------------%
+
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{Several kind of expansions}{\URL[PB]{https://www.gnu.org/software/bash/manual/}{Bash manual v5.0 section 3.5}}
+    Expansion is performed on the command line after it has been split into tok\tikzmark{tokens}ens:\\[0.5em]
+    \begin{itemize}
+        \item Brace expansion\tikzmark{ExpA}
+        \item Tilde expansion\tikzmark{ExpB}
+        \item Parameter and variable expansion
+        \item Arithmetic expansion
+        \item Process substitution \tc{Gray!80}{{\tiny~\{Not available if \URL[Gray]{https://www.gnu.org/software/bash/manual/html_node/Bash-POSIX-Mode.html}{Bash in POSIX Mode (item 30)}\}}}
+        \item Command substitution\tikzmark{ExpC}
+        \item Word splitting\tikzmark{ExpD}
+        \item Filename expansion\tikzmark{ExpE}
+    \end{itemize}
+    \begin{varblock}{alerted}[0.85\textwidth]{Quote removal}
+        After the preceding expansions, all unquoted occurrences of the characters\\
+        \alert{\texttt{\textbackslash}}, \alert{\texttt{'}}, and \alert{\texttt{"}}
+        that did not result from one of the above expansions are removed.
+    \end{varblock}
+    \begin{tikzpicture}[remember picture, overlay]
+        \coordinate (xPos) at ($(current page.north)!0.3!(current page.north east)$);
+        \draw[very thick, decorate, decoration={brace,amplitude=6pt}] (ExpB -| xPos) ++(-8mm,1mm) -- ($(ExpC -| xPos)+(-8mm,-1mm)$)
+              coordinate[midway] (second);
+        \node[anchor=west] at (second -| xPos) {\MakeEnumerateBox{2}$\quad$\alert{At the same time!}};
+        \draw[from, shorter={0mm}{3mm}] (ExpA) -- (xPos |- ExpA) node[anchor=west] {\MakeEnumerateBox{1}};
+        \draw[from, shorter={0mm}{3mm}] (ExpD) -- (xPos |- ExpD) node[anchor=west] {\MakeEnumerateBox{3}};
+        \draw[from, shorter={0mm}{3mm}] (ExpE) -- (xPos |- ExpE) node[anchor=west] {\MakeEnumerateBox{4}};
+        \node[anchor=north east, font=\scriptsize, above = of tokens] (metacharacters){
+            \begin{tabular}{c}
+                A line is split into tokens using unquoted metacharacters:\\[0.2em]
+                \PP{\texttt{\textvisiblespace\ \textbackslash t \textbackslash n | \& ; ( ) < >}}
+            \end{tabular}
+        };
+        \path[from, shorter={2mm}{0mm}] (tokens) edge[out=90, in=270] (metacharacters);
+    \end{tikzpicture}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Brace expansion}
+    \vspace{-5mm}
+    \begin{overlayarea}{\textwidth}{0.7\textheight}
+        \begin{itemize}
+            \item It comes in two forms:
+                \begin{enumerate}
+                    \item \bash|[prefix]{comma separated list}[postfix]|
+                    \item \bash|[prefix]{X..Y[..increment]}[postfix]|
+                \end{enumerate}
+            \item<only@1> \bash|[prefix]| and \bash|[postfix]| are optional 
+            \item<only@1> \bash|[prefix]| and \bash|[postfix]| might contain other brace expansions
+            \item<only@1> Brace expansions can be nested and, if so, they work from the outside in
+            \item<only@1> \bash|X| and \bash|Y| are either characters or numbers
+            \item<only@1> \bash|increment| is an optional integer (if omitted, it is +1 or -1 as appropriate)
+            \item<only@1> If \bash|X| and \bash|Y| are numbers, leading 0 are respected to force each term to have the same width
+            \item<only@1> If the brace expansion syntax is not respected, then brace expansion is not performed!
+        \end{itemize}
+        \vspace{-3mm}
+        \begin{varblock}{}[\textwidth]{Result of the expansion}<only@1>
+            A space separated list of all combinations of \bash|[prefix]| and \bash|[postfix]| with the elements in the brace.
+            In \MakeEnumerateBox{2}, the sequence in braces is at first completed going back to \MakeEnumerateBox{1}.
+            Order is respected left to right. Multiple non-nested braces expand to all combinations.
+        \end{varblock}
+        \begin{onlyenv}<2>
+            \begin{lstlisting}[style=MyBash, style=oddnumbers, aboveskip=3mm]
+                $ echo {a,b,c}
+                |+a b c+|
+                $ echo {a,b,c}.tex
+                |+a.tex b.tex c.tex+|
+                $ echo image.{jpg,png,pdf}
+                |+image.jpg image.png image.pdf+|
+                $ echo {1..8}
+                |+1 2 3 4 5 6 7 8+|
+                $ echo {8..1}
+                |+8 7 6 5 4 3 2 1+|
+                $ echo {1..8..3}
+                |+1 4 7+|
+                $ echo {a..e}
+                |+a b c d e+|
+                $ echo {e..a..2}
+                |+e c a+|
+                $ echo file_{01..3}.pdf
+                |+file_01.pdf file_02.pdf file_03.pdf+| #Note leading zeros!
+            \end{lstlisting}
+        \end{onlyenv}
+        \begin{onlyenv}<3>
+            \begin{lstlisting}[style=MyBash, style=oddnumbers, aboveskip=3mm, firstnumber=18]
+                $ echo {A..C}{0..2}
+                |+A0 A1 A2 B0 B1 B2 C0 C1 C2+|
+                $ echo {A..C}@|\textvisiblespace|@{0..2} # Here two independent expansions!
+                |+A B C 0 1 2+|
+                $ echo {in,out}{go,com}ing
+                |+ingoing incoming outgoing outcoming+|
+                $ echo {{A,E,I,O,U},{0..9}}
+                |+A E I O U 0 1 2 3 4 5 6 7 8 9+|
+                $ echo {a..z..x}
+                |+{a..z..x}+|  # No brace expansion!
+                $ aVar=1; echo {$aVar..5}; unset aVar
+                |+{1..5}+|     # No brace expansion!
+                $ echo {b,1..5}
+                |+b 1..5+|     # Not surprising, right?
+                $ echo {b,{1..5}}
+                |+b 1 2 3 4 5+|
+                $ echo {b,{1..5}}} # Which of the last braces is kept?
+                |+b} 1} 2} 3} 4} 5}+|
+            \end{lstlisting}
+        \end{onlyenv}
+    \end{overlayarea}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{Parameter expansion: Overview}
+    \vspace{-3mm}
+    \begin{itemize}
+        \item It is the most used form of expansion!
+        \item Its basic syntax consists of a single dollar sign alone
+        \item Braces after the dollar are only sometimes necessary\\
+              $\to$ it is good practice to always use them: \PP{\texttt{\$\{\ldots\}}}
+        \item Basic form: \PB{\texttt{\$\{parameter\}}} $\,\to\,$ The value of parameter is substituted
+        \item There are plenty of incredibly powerful modified forms of parameter expansion\\
+              $\to$ you will learn them by using, but \alert{keep in mind they exist}!
+        \item General form: \PB{\texttt{\$\{[prefix]parameter[postfix]\}}}
+        \item Not all (particular) cases are discussed here immediately
+        \item More on parameter expansion in the future\\
+              \begin{itemize}
+                  \item[$\to$] namerefs and indirect expansion
+                  \item[$\to$] arrays and associative arrays
+              \end{itemize}
+    \end{itemize}
+    \FrameRemark{Everything can be found in the \URL[PB]{https://www.gnu.org/software/bash/manual/}{Bash manual v5.0 section 3.5.3}}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Parameter expansion: Checking variables state}
+    \vspace{-3mm}
+    \begin{onlyenv}<1>
+        \begin{varblock}{alerted}[0.8\textwidth]{}
+            \small\alert{In each of the cases below, word is subject to tilde expansion, parameter expansion, command substitution, and arithmetic expansion!}
+        \end{varblock}
+        \begin{center}
+            \begin{tabular}{r@{\quad}>{\footnotesize}l}
+                \makecell[tc]{
+                    \PB{\small\texttt{\$\{parameter:-word\}}}\\[-0.5em]
+                    \PP{\ssmall\textbf{Use Default Value}}
+                } & \makecell[tl]{Parameter unset or null: \PP{expansion of word is substituted}\\
+                                  Otherwise: the value of parameter is substituted} \\
+                \makecell[tc]{
+                    \PB{\small\texttt{\$\{parameter:=word\}}}\\[-0.5em]
+                    \PP{\ssmall\textbf{Assign Default Value}}
+                } & \makecell[tl]{Parameter unset or null: \PP{expansion of word is assigned to parameter}\\
+                                  Otherwise: the value of parameter remains unchanged\\
+                                  The value of parameter is then substituted \\
+                                  {\tiny\{~Positional parameters and special parameters may not be assigned to in this way~\}}} \\
+                \makecell[tc]{
+                    \PB{\small\texttt{\$\{parameter:?word\}}}\\[-0.5em]
+                    \PP{\ssmall\textbf{Exit with message}}
+                } & \makecell[tl]{Parameter is null or unset: \PP{the expansion of word to the standard error}\\
+                                  The shell, then, if it is not interactive, exits\\
+                                  Otherwise, the value of parameter is substituted\\
+                                  {\tiny\{~If word is not present, a default message is produced~\}} } \\
+                \makecell[tc]{
+                    \PB{\small\texttt{\$\{parameter:+word\}}}\\[-0.5em]
+                    \PP{\ssmall\textbf{Use Alternative value}}
+                } & \makecell[tl]{Parameter is null or unset: \PP{nothing is substituted}\\
+                                  Otherwise, the expansion of word is substituted} \\
+            \end{tabular}
+        \end{center}
+        \vspace{-3mm}
+        \begin{varblock}{}[0.8\textwidth]{A different variant}
+            \small Omitting the colon results in a test only for a parameter that is unset. \\
+            Put another way, if the colon is omitted, the operator tests only for existence.
+        \end{varblock}
+    \end{onlyenv}
+    \begin{onlyenv}<2>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, style=smaller]
+            $ aVar="Hello"
+            # The variable aVar is set and not empty/null
+            $ echo "_${aVar}_"
+            |+_Hello_+|
+            $ echo "_${aVar-Goodbye}_   _${aVar:-Goodbye}_"  # Use default Value
+            |+_Hello_   _Hello_+|
+            $ echo "_${aVar=Goodbye}_   _${aVar:=Goodbye}_"  # Assign default Value
+            |+_Hello_   _Hello_+|
+            $ echo "_${aVar?Goodbye}_   _${aVar:?Goodbye}_"  # Exit with message
+            |+_Hello_   _Hello_+|
+            $ echo "_${aVar+Goodbye}_   _${aVar:+Goodbye}_"  # Use alternative value
+            |+_Goodbye_   _Goodbye_+|
+            $ aVar=""
+            # The variable aVar is now set BUT empty/null
+            $ echo "_${aVar}_"
+            |+__+|
+            $ echo "_${aVar-Goodbye}_   _${aVar:-Goodbye}_"
+            |+__   _Goodbye_+|
+            $ echo "_${aVar=Goodbye}_   _${aVar:=Goodbye}_"; aVar=""
+            |+__   _Goodbye_+|
+            $ echo "_${aVar?Goodbye}_   _${aVar:?Goodbye}_"
+            |+bash: aVar: Goodbye+| # Shell STOPS at second expansion and prints message!
+            $ echo "_${aVar?Goodbye}_"
+            |+__+|
+            $ echo "_${aVar+Goodbye}_   _${aVar:+Goodbye}_"
+            |+_Goodbye_   __+|
+        \end{lstlisting}
+    \end{onlyenv}
+    \begin{onlyenv}<3>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, style=smaller, firstnumber=26]
+            $ unset aVar
+            # The variable aVar is now UNSET
+            $ echo "_${aVar}_"
+            |+__+|
+            $ echo "_${aVar-Goodbye}_   _${aVar:-Goodbye}_"
+            |+_Goodbye_   _Goodbye_+|
+            $ echo "_${aVar=Goodbye}_"; unset aVar
+            |+_Goodbye_+|
+            $ echo "_${aVar:=Goodbye}_"; unset aVar
+            |+_Goodbye_+|
+            $ echo "_${aVar?Goodbye}_"
+            |+bash: aVar: Goodbye+| # Shell STOPS at expansion and prints message!
+            $ echo "_${aVar:?Goodbye}_"
+            |+bash: aVar: Goodbye+| # Shell STOPS at expansion and prints message!
+            $ echo "_${aVar+Goodbye}_   _${aVar:+Goodbye}_"
+            |+__   __+|
+        \end{lstlisting}
+        \begin{varblock}{}[0.9\textwidth]{Ok, but is all this useful? When?}
+            Ohhh yes! These kinds of expansion are useful e.g. when it comes to checking whether a variable is set, unset or set but empty.
+            Sometimes there are alternatives, but sometimes you need exactly this!
+        \end{varblock}
+    \end{onlyenv}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Parameter expansion: String manipulation (I)}
+    \vspace{-3mm}
+    \setbeamerfont{description item}{series=\bfseries}
+    \setbeamercolor{description item}{fg=PP}
+    \begin{description}[Substring Expansion:]
+        \item[String Length:] \PB{\small\texttt{\$\{\#parameter\}}}\\
+            {\small
+                The length in characters of the value of parameter is substituted
+            }
+        \item[Substring Expansion:] \PB{\small\texttt{\$\{parameter:offset:length\}}}\\
+            {\small
+                Expands to up to \texttt{length} characters of \texttt{parameter}
+                starting at the character specified by \texttt{offset} (0-indexed)\\
+                If \texttt{:length} is omitted, go all the way to the end\\[-0.5em]
+                {\tiny\{~If \texttt{offset} is negative, count backward from the end
+                of \texttt{parameter} instead of forward from the beginning~\}}
+            }
+    \end{description}
+    \begin{uncoverenv}<2>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, aboveskip=2mm]
+            $ aVar='01234567890abcdefgh'
+            # Let us demonstrate a bit
+            $ echo "String ${aVar} is ${#aVar} characters long"
+            |+String 01234567890abcdefgh is 19 characters long+|
+            $ echo "${aVar:7} and 0 length: \"${aVar:7:0}\""
+            |+7890abcdefgh and 0 length: ""+|
+            $ echo "${aVar:7:2} and ${aVar:7:-2}"
+            |+78 and 7890abcdef+|
+            $ echo "${aVar:@|\textvisiblespace|@-7}" # Why do you need a space?
+            |+bcdefgh+|
+            $ echo "${aVar: -7:2} and ${aVar: -7:0} and ${aVar: -7:-2}"
+            |+bc and  and bcdef+|
+        \end{lstlisting}
+    \end{uncoverenv}
+    \FrameRemark{These types of expansion apply also to arrays: We will come back to this!}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Parameter expansion: String manipulation (II)}
+    \vspace{-3mm}
+    \setbeamerfont{description item}{series=\bfseries}
+    \setbeamercolor{description item}{fg=PP}
+    \begin{description}[Remove Smallest Suffix:]
+        \item[Remove Smallest Prefix:] \PB{\small\texttt{\$\{parameter\#pattern\}}}\\
+            {\small
+                The \texttt{pattern} is matched against the \textbf{beginning} of \texttt{parameter}\\
+                which is expanded with the \textbf{shortest} match deleted
+            }
+        \item[Remove Largest Prefix:] \PB{\small\texttt{\$\{parameter\#\#pattern\}}}
+            {\scriptsize
+                As the previous, but the \textbf{longest} match is deleted
+            }
+        \item[Remove Smallest Suffix:] \PB{\small\texttt{\$\{parameter\%pattern\}}}\\
+            {\small
+                The \PB{\texttt{pattern}} is matched against the \textbf{end} of \texttt{parameter}\\
+                which is expanded with the \textbf{shortest} match deleted
+            }
+        \item[Remove Largest Suffix:] \PB{\small\texttt{\$\{parameter\%\%pattern\}}}
+            {\scriptsize
+                As the previous, but the \textbf{longest} match is deleted
+            }
+    \end{description}
+    \begin{uncoverenv}<2>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, aboveskip=2mm]
+            $ aVar='b1.2345_s0000_s1111'
+            # Let us demonstrate a bit (* matches any characters)
+            $ echo "${aVar#*_} and ${aVar##*_}"
+            |+s0000_s1111 and s1111+|
+            $ echo "${aVar%_*} and ${aVar%%_*}"
+            |+b1.2345_s0000 and b1.2345+|
+            $ echo "${aVar#NoMatch} and ${aVar%NoMatch}"
+            |+b1.2345_s0000_s1111 and b1.2345_s0000_s1111+|
+        \end{lstlisting}
+    \end{uncoverenv}
+    \FrameRemark{These types of expansion apply also to arrays: We will come back to this!}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Parameter expansion: String manipulation (III)}
+    \vspace{-3mm}
+    \setbeamerfont{description item}{series=\bfseries}
+    \setbeamercolor{description item}{fg=PP}
+    \begin{description}[Replace at start:]
+        \item[Replace first:] \PB{\small\texttt{\$\{parameter/pattern/string\}}}\\
+            {\small
+                Results in the expanded value of \texttt{parameter} with the first (unanchored) match\\
+                of \texttt{pattern} replaced by \texttt{string}\\[-0.5em]
+                {\tiny\{~Assume null string when the \texttt{/string} part is absent~\}}
+            }
+        \item[Replace all:] \PB{\small\texttt{\$\{parameter//pattern/string\}}}\\
+            {\small
+                As the previous, but \textbf{every} match is replaced
+            }
+        \item[Replace at start:] \PB{\small\texttt{\$\{parameter/\#pattern/string\}}}\\
+            {\small
+                As the first, but matched against the \textbf{beginning}
+            }
+        \item[Replace at end:] \PB{\small\texttt{\$\{parameter/\%pattern/string\}}}\\
+            {\small
+                As the first, but matched against the \textbf{end}
+            }
+    \end{description}
+    \begin{uncoverenv}<2>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, aboveskip=2mm]
+            $ aVar='123aa000aa321'
+            # Let us demonstrate a bit
+            $ echo "${aVar/aa/_} and ${aVar//aa/_}"
+            |+123_000aa321 and 123_000_321+|
+            $ echo "${aVar/#1/_} and ${aVar/%1/_}"
+            |+_23aa000aa321 and 123aa000aa32_+|
+            $ echo "${aVar/#/prefix} and ${aVar/%/postfix}"
+            |+prefix123aa000aa321 and 123aa000aa321postfix+|
+        \end{lstlisting}
+    \end{uncoverenv}
+    \FrameRemark{These types of expansion apply also to arrays: We will come back to this!}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Parameter expansion: String manipulation (IV)}{Since Bash v4.0 (2009)}
+    \vspace{-3mm}
+    \setbeamerfont{description item}{series=\bfseries}
+    \setbeamercolor{description item}{fg=PP}
+    \begin{description}[Replace at start:]
+        \item[First uppercase:] \PB{\small\texttt{\$\{parameter\^{}\}}}\\
+            {\small
+                Results in the expanded value of \texttt{parameter} with the first character capitalised
+            }
+        \item[All uppercase:] \PB{\small\texttt{\$\{parameter\^{}\^{}\}}}\\
+            {\small
+                As the previous, but all characters are capitalised
+            }
+        \item[First uppercase:] \PB{\small\texttt{\$\{parameter,\}}}\\
+            {\small
+                Results in the expanded value of \texttt{parameter} with the first character to lowercase
+            }
+        \item[All lowercase:] \PB{\small\texttt{\$\{parameter,,\}}}\\
+            {\small
+                As the previous, but all characters are transformed to lowercase
+            }
+    \end{description}
+    \begin{uncoverenv}<2>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, aboveskip=2mm]
+            $ aVar='hELLO, World!'
+            # Let us demonstrate a bit
+            $ echo "${aVar^}  -  ${aVar^^}"
+            |+HELLO, World!  -  HELLO, WORLD!+|
+            $ echo "${aVar,}  -  ${aVar,,}"
+            |+hELLO, World!  -  hello, world!+|
+        \end{lstlisting}
+    \end{uncoverenv}
+    \FrameRemark{These types of expansion apply also to arrays: We will come back to this!}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{Parameter expansion: String manipulation summary}
+    \vspace{-3mm}
+    \begin{varblock}{alerted}[0.88\textwidth]{\textbf{Good practice:}}
+        You may be tempted to use external applications such as \bash|sed|, \bash|awk|, \bash|cut|, \bash|perl| or others to modify your strings.
+        Be aware that all of these require an extra process to be started, which in some cases can cause slowdowns.\\
+        \alert{Parameter Expansions are the perfect alternative!}
+    \end{varblock}
+    \bigskip
+    \centerline{\includegraphics[width=0.5\textwidth, clip, trim=0 5mm 0 0]{GotPower}}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Arithmetic expansion}
+    \vspace{-3mm}
+    \begin{itemize}[<only@1>]
+        \item Arithmetic expansion syntax is \PP{\texttt{\$((\ldots))}} and it can be nested
+        \item \alert{Bash is only capable of integer arithmetic}
+        \item If you need to do \textbf{a lot} of non-integer arithmetic, then Bash is the wrong tool!
+        \item Shell variables are allowed as operands\\ $\to\,$ parameter expansion is performed before the expression is evaluated!
+        \item Within an expression, shell variables may also be referenced by name without \PP{\texttt{\$\{\ldots\}}}\\
+              $\Rightarrow\,$ strings are recursively interpreted as variable name until an integer value is found!
+        \item A shell variable that is null or unset evaluates to
+              \begin{itemize}
+                  \item[$\circ$] \alert{\texttt{0}} when referenced by name \alert{\textbf{without using}} the parameter expansion syntax
+                  \item[$\circ$] \PP{\texttt{''}} when referenced by name \PP{\textbf{using}} the parameter expansion syntax
+              \end{itemize}
+        \item Overflow is not checked but division by 0 gives an error
+        \item Operators and their precedence are the same as in the \texttt{C} language\\ $\to\,$ \URL[PB]{https://www.gnu.org/software/bash/manual/}{Bash manual v5.0 section 6.5}
+    \end{itemize}
+    \begin{onlyenv}<2>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, style=smaller]
+            $ echo $(( 22 / 3 ))
+            |+7+|
+            $ aVar=22; echo $(( ${aVar} / 3 )); unset aVar
+            |+7+|
+            $ aVar=22; echo $(( aVar / 3 )); unset aVar
+            |+7+|
+            $ echo $(( aVar / 3 ))     # aVar is unset,  no  ${} => 0 is used:  $((0/3))
+            |+0+|
+            $ echo $(( ${aVar} / 3 ))  # aVar is unset, with ${} => '' is used: $(( /3))
+            |+bash: / 3 : syntax error: operand expected (error token is "/ 3 ")+|
+            $ echo $(( ))
+            |+0+|
+            $ aVar='Hello'; echo $(( aVar )) $(( ${aVar} )); unset aVar
+            |+0 0+| # No variable 'Hello' existing
+            $ aVar='bVar'; bVar=5; echo $(( aVar )) $(( ${aVar} )); unset aVar bVar
+            |+5 5+| # aVar is expanded to bVar, which is defined to 5
+            $ aVar='HelloMyLove'; echo $(( aVar )) $(( ${aVar} )); unset aVar
+            |+0 0+| # No variable 'HelloMyLove' existing
+            $ aVar='Hello <3'; echo $(( aVar )) $(( ${aVar} )); unset aVar
+            |+1 1+| # It makes sense, doesn't it?
+            $ echo $(( 2**51 * 4096 ))
+            |+-9223372036854775808+| # No error, no overflow check!
+        \end{lstlisting}
+    \end{onlyenv}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Word splitting}{\ldots{}the evil of Bash!}
+    \vspace{-6mm}
+    \begin{onlyenv}<1>
+        \begin{varblock}{}[0.9\textwidth]{When does it occur?}
+            The shell scans the results of parameter expansion, command substitution, and arithmetic expansion that did not occur within double quotes for word splitting!
+        \end{varblock}
+        \begin{itemize}
+            \item The shell treats each character of \bash|IFS| as a delimiter, and splits the results of the other expansions into words using these characters \textbf{as field \alert{\underline{terminators}}} (these are all dropped)
+            \item Whitespace characters $\;$\PP{\texttt{\textvisiblespace\textbackslash{}t\textbackslash{}n}}$\;$ contained in \bash|IFS| are called \PP{IFS whitespaces}
+            \item \alert{IFS whitespaces at the beginning/end} of the results of previous expansions \alert{are ignored}
+            \item \alert{Adjacent IFS whitespaces} are considered all together as \alert{single field terminator}
+            \item \alert{Any other character} in \bash|IFS| that is not an IFS whitespace \alert{\textbf{always} delimits a field}
+            \item If the value of \bash|IFS| is null, no word splitting occurs
+            \item Implicit null arguments, resulting from the expansion of empty parameters, are removed
+            \item \PQ{\textbf{Note that if no expansion occurs, no splitting is performed}}
+        \end{itemize}
+    \end{onlyenv}
+    \begin{onlyenv}<2>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, aboveskip=3mm]
+            # The args command puts the arguments it gets in <...>
+            # NOT standard, I implemented it!
+            $ args Hello world "I am Alessandro"
+            |+3 args: <Hello> <world> <I am Alessandro>+|
+            $ aVar="This is a variable"; args ${aVar}
+            |+4 args: <This> <is> <a> <variable>+|
+            $ args "${aVar}"
+            1 args: <This is a variable>
+            $ ls
+            Day1.tex   Day2.tex   Day3.tex
+            $ args $(ls)
+            |+3 args: <Day1.tex> <Day2.tex> <Day3.tex>+|
+            $ aVar="     This is a variable   "; args ${aVar}
+            |+4 args: <This> <is> <a> <variable>+|
+            $ aVar="     This   is  a    variable   "; args ${aVar}
+            |+4 args: <This> <is> <a> <variable>+|
+            $ aVar="/home/sciarra/Documents/Seminars/"; args ${aVar}
+            |+1 args: </home/sciarra/Documents/Seminars/>+|
+            $ IFS='/'; args ${aVar}; unset IFS
+            |+5 args: <> <home> <sciarra> <Documents> <Seminars>+|
+            # Why is there an empty argument at the beginning?
+            # Why isn't there one at the end?
+        \end{lstlisting}
+    \end{onlyenv}
+    \begin{onlyenv}<3>
+        \begin{lstlisting}[style=MyBash, style=oddnumbers, aboveskip=3mm, firstnumber=22]
+            # Let us have a look to more complex situations
+            $ aVar="   /home/sciarra/Documents/Seminars   "
+            $ IFS='/'; args ${aVar}; unset IFS
+            |+5 args: <   > <home> <sciarra> <Documents> <Seminars   >+|
+            $ IFS='@|\textvisiblespace|@/'; args ${aVar}; unset IFS # Note the space in IFS
+            |+5 args: <> <home> <sciarra> <Documents> <Seminars>+|
+            # Remember $'' special quoting to allow backslash escaping
+            $ aVar=$'\n   \n  xxx \t   \t  xx  \t'
+            $ args ${aVar}
+            |+2 args: <xxx> <xx>+|
+            $ IFS=''; args ${aVar}; unset IFS
+            |+1 args: <+|
+            |+   +|
+            |+  xxx         xx    >+|
+            $ IFS=$'\n'; args ${aVar}; unset IFS
+            |+2 args: <   > <  xxx        xx    >+|
+            $ IFS=$'\n\t'; args ${aVar}; unset IFS
+            |+4 args: <   > <  xxx > <   > <  xx  >+|
+            $ IFS=$'\n\t x'; args ${aVar}; unset IFS
+            |+5 args: <> <> <> <> <>+|
+            $ IFS=':'; args aaa:bbb; unset IFS aVar
+            |+1 args: <aaa:bbb>+| # It makes sense, right?
+        \end{lstlisting}
+    \end{onlyenv}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Word splitting: conclusion}
+    \vspace{-4  mm}
+        \begin{varblock*}{}[0.9\textwidth]{When does NOT it occur?}
+        Word splitting is not performed
+        \begin{itemize}
+            \item on expansions inside Bash keywords such as \bash|[[| \texttt{\ldots} \bash|]]| and \bash|case|;
+            \item on expansions in assignments. \\[0.3em] Thus, one does not need to quote anything in a command like these:
+                  \begin{lstlisting}[style=MyBash, numbers=none, xrightmargin=45mm, belowskip=-5mm, aboveskip=2mm]
+                      aVar=${bVar}; aVar=$(date)
+                      PATH=/usr/local/bin:${PATH} 
+                  \end{lstlisting}
+                  Quoting anyway will not break anything, so \PP{if in doubt, quote!}
+        \end{itemize}
+    \end{varblock*}
+    \begin{varblock}{alerted}[0.98\textwidth]{Remember:}
+        \alert{Word Splitting is performed \textbf{after} Parameter Expansion has been performed!} \\
+        That means that it is absolutely vital that we quote our Parameter Expansions, in case they may expand values that contain syntactical whitespace which will then be word-split.
+    \end{varblock}
+    \FrameRemark{It is almost never desirable to put syntactical whitespace in parameters.}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{Other expansions}
+    \vspace{-12mm}
+    \begin{columns}
+        \begin{column}{\dimexpr\paperwidth-10mm}
+            \begin{center}
+                \large\fbox{\alert{\textbf{Before}} Word Splitting:}
+            \end{center}
+            \begin{description}[Command substitution:]
+                \setlength{\itemsep}{3mm}
+                \item[Tilde expansion:]
+                    Easy to understand $\to$ \URL[PB]{https://www.gnu.org/software/bash/manual/}{Bash manual v5.0 section 3.5.2}
+                \item[Process substitution:]
+                    Useful, but not discussed here $\to$ \URL[PB]{https://www.gnu.org/software/bash/manual/}{Bash manual v5.0 section 3.5.6}\\
+                    It takes the form \alert{\texttt{<(\ldots)}} or \alert{\texttt{>(\ldots)}}
+                \item[Command substitution:]
+                    It occurs when a command is enclosed as \alert{\texttt{\$(\ldots)}}\\
+                    Do not use the deprecated syntax \tc{Gray!30}{\texttt{\textasciigrave\ldots\textasciigrave}}
+            \end{description}
+            \vspace{-2mm}
+            \begin{varblock}{example}[0.8\textwidth]{Try to read about them alone}
+                The Bash manual is a very good source, you can start reading there!\\
+                \URL[PS]{http://mywiki.wooledge.org/BashGuide/InputAndOutput\#Process\_Substitution}{More on process substitution}
+            \end{varblock}
+            \begin{center}
+                \large\fbox{\PP{\textbf{After}} Word Splitting:}
+            \end{center}
+            \begin{description}[\hspace{0.4\textwidth}]
+                \item[Filename expansion:]
+                    Discussed in a separate section about globbing
+            \end{description}
+        \end{column}
+    \end{columns}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%

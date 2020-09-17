@@ -1,0 +1,31 @@
+%-------------------------------%
+%  Author: Alessandro Sciarra   %
+%    Date: 25 Jul 2019          %
+%-------------------------------%
+
+\begin{exercise}[Instructive]{The power of arrays}
+    Arrays play a very important role in Bash scripting and they are too often forgotten.
+    To warm up and also explore the array notation think about
+    \begin{itemize}
+        \item how to find the longest entry of an array?
+        \item how to find the maximum of an array with \emph{numeric} entries?
+        \item how to find only common entries in two arrays?
+        \item how to sort an array?
+        \item how to check if an array is sparse?
+    \end{itemize}
+    Once you feel comfortable with the array syntax, tackle the following problems.
+    \begin{enumerate}[after=\vspace{-\baselineskip}]
+        \item Write a Bash script to make a report of the files in the present folder, counting them by extension.
+              In order to test your script, create a test folder where you can create some files via
+              \begin{lstlisting}[style=MyBash, emph={[2]ext, index}, alsoletter={0123456789![]/\{\}.:}]
+                  for ext in jpg png eps pdf txt odt tex; do
+                      for ((index=1; index<=$(shuf -i 3-9 -n 1); index++)); do
+                          touch file_${index}.${ext}
+                      done
+                  done; unset -v 'ext' 'index'
+              \end{lstlisting}
+        \item Write a script that given integers on the command line parameters, calculates their \textbf{greatest common divisors} and their \textbf{least common multiple}, using the prime factorisations.
+              Take a look to the \bash|factor| command.
+    \end{enumerate}
+    \bigskip
+\end{exercise}

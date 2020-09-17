@@ -1,0 +1,26 @@
+%-------------------------------%
+%  Author: Alessandro Sciarra   %
+%    Date: 3 Jul 2019           %
+%-------------------------------%
+
+\begin{exercise}[Instructive]{The special parameters \bash{*} and \bash{\@} and their quoted versions}
+    Consider the following script.
+    \begin{lstlisting}[style=MyBash, numbers=left]
+        #!/bin/bash
+        printf '\nScript run with %d argument(s)\n' "$#"
+        IFS=":${IFS}"
+        printf 'Using "$@":'
+        printf ' <%s>' "$@"   # or "$*" or $@ or $*
+        printf '\n\n'
+    \end{lstlisting}
+    Use the manual or the web to understand how the command \bash|printf| works and to understand then the given script.
+    Make the above script executable and complete it adding lines 4-6 for \bash{"$*"}, for \bash{$@} and for \bash{$*}.
+    Create a new temporary folder, move into it and \bash|touch Day_{1..3}.dat| (what happens?).
+    Run your script with the following arguments:
+    \begin{lstlisting}[style=MyBash]
+        '*.dat' $(whoami) "Hello World"
+    \end{lstlisting}
+    Have you understood the difference between \bash{"$@"}, \bash{"$*"}, \bash{$@} and \bash{$*}?
+    Are there differences between the unquoted \bash{$@} and \bash{$*}?
+    Try removing quotes from \bash|'*.dat'|.
+\end{exercise}

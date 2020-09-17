@@ -1,0 +1,224 @@
+%-------------------------------%
+%  Author: Alessandro Sciarra   %
+%    Date: 12 Sep 2019          %
+%-------------------------------%
+
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{Awk: Another marvellous utility}
+    \begin{varblock}{quote}[\textwidth]{A bit of history}[Awk manual]
+        \textnormal{
+            \fbox{\parbox{\dimexpr\columnwidth-1cm}{\centering\footnotesize
+                \begin{tabular}{l@{\hspace{15mm}}l}
+                    1 part \texttt{egrep} & 1 part \texttt{snobol}\\
+                    2 parts \texttt{ed}   & 3 parts \texttt{C} \\
+                \end{tabular}\\
+                Blend all parts well using \texttt{lex} and \texttt{yacc}.
+                Document minimally and release.\\
+                After eight years, add another part \texttt{egrep} and two more parts \texttt{C}.
+                Document very well and release.
+            }}\\[1.5ex]
+            The name \bash|awk| comes from the initials of its designers: Alfred V. Aho, Peter J. Wein-berger, and Brian W. Kernighan.
+            The original version of \bash|awk| was written in \alert{1977} at AT\&T Bell Laboratories.
+        }\\[-1ex] ~
+    \end{varblock}
+    \begin{varblock*}{}[0.85\textwidth]{Some references}
+        Awk can be considered for all intents and purposes as a programming language!\\
+        $\quad$\URL[PB]{https://www.gnu.org/software/gawk/manual/}{The official GNU manual} {\tiny\{~The PDF is \alert{570} pages long\ldots~\}}\\
+        $\quad$\URL[PS]{http://www.grymoire.com/Unix/Awk.html}{A base tutorial}
+    \end{varblock*}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{The PDF manual is 570 pages long!! What should I learn here?}
+    \vspace{-4mm}
+    \begin{itemize}
+        \item We will focus on the abstract idea of \textbf{how} \bash|awk| processes a file
+        \item Some of the simplest aspects will be introduced
+        \item Awk is so powerful that just knowing something is worth it; mastering it is probably not needed for a physicist, though
+    \end{itemize}
+    \begin{uncoverenv}<2->
+        \begin{lstlisting}[style=MyBash, numbers=none, aboveskip=2mm, belowskip=-5mm]
+            # Invocation
+            awk |+[OPTIONS...] 'program' [INPUTFILE...]+|
+
+            # General structure of program (single quoted, usually)
+            |+  BEGIN { action }+|     # Optional block
+            |+pattern { action }+|     #
+            |+...               +|     # { action } can be omitted
+            |+pattern { action }+|     #
+            |+    END { action }+|     # Optional block
+        \end{lstlisting}
+    \end{uncoverenv}
+    \begin{itemize}[<3>]
+        \item \texttt{BEGIN} and \texttt{END} are special patterns, indeed
+        \item The default action is print the record (i.e. the line)
+        \item If only the \texttt{BEGIN} block is given, no input is read
+        \item If no input is given but one is needed, \bash|awk| reads from standard input
+    \end{itemize}
+    \FrameRemark{There are other special pattern, which are less common and which can be found in the manual.}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{The \bash|awk| spirit: A data driven processing}
+    \vspace{-3mm}
+    \begin{enumerate}
+        \item Before starting processing the input file(s), the \texttt{BEGIN} block, if present, is processed.
+              There is no default action for this block.
+        \item Input is read until the \textbf{R}ecord \textbf{S}eparator is found (generally an end-of-line).
+        \item Some default record processing is done, e.g. splitting it in fields (removing separators), and builtin variables are set.
+        \item Processing of the part of input is done, executing the blocks in the given orders.\\
+              An action in a block might jump to reading from the input, skipping the following blocks.
+        \item Input is read again, i.e. go to \MakeEnumerateBox{2}.
+        \item After having processed the last bunch of input (i.e. that terminated by the end-of-file of the last file), the \texttt{END} block, if present, is processed.\\
+              There is no default action for this block.
+    \end{enumerate}
+    \begin{varblock}{}[0.75\textwidth]{Some terminology}
+        \begin{description}[XX\textbf{Record:}]
+            \item[\textbf{Record:}] The bunch of input read at each iteration
+            \item[\textbf{Field:}] Each piece in which each record is automatically split
+        \end{description}
+    \end{varblock}
+    \FrameRemark{There are exceptions to the flow above (e.g. the \texttt{exit} keyword). \alert{Use this slide as approximated overview.}}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}{8 powerful \bash|awk| builtin variables}
+    \begin{varblock}{quote}[0.7\textwidth]{You can change this to a string or regular expression}
+        \normalfont
+        \begin{description}[XXXXXX]
+            \item[\textbf{FS}] \textbf{F}ield \textbf{S}eparator. \PP{White-space} by default.
+            \item[\textbf{OFS}] \textbf{O}utput \textbf{F}ield \textbf{S}eparator. \PP{Single white-space} by default.
+            \item[\textbf{RS}] \textbf{R}ecord \textbf{S}eparator. \PP{End of line} by default.
+            \item[\textbf{ORS}] \textbf{O}utput \textbf{R}ecord \textbf{S}eparator. \PP{End of line} by default.
+        \end{description}
+    \end{varblock}
+    \begin{varblock}{}[0.68\textwidth]{Variable automatically set}
+        \begin{description}[\textbf{FILENAME}]
+            \item[\textbf{NR}] \textbf{N}umber of \textbf{R}ecord.
+            \item[\textbf{NF}] \textbf{N}umber of \textbf{F}ield.
+            \item[\textbf{FILENAME}] The name of the file being processed.
+            \item[\textbf{FNR}] \textbf{N}umber of \textbf{R}ecord within the \textbf{F}ile being processed.
+        \end{description}
+    \end{varblock}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{The field placeholders}
+    \vspace{-4mm}
+    \begin{varblock}{example}[0.8\textwidth]{Field placeholders, automatically set}
+        \begin{description}[XXXXXX]
+            \item[\$n] The fields can be accessed via \$1, \ldots,\$9, \$10, \ldots
+            \item[\$0] This special placeholder can be used to access the full record
+        \end{description}
+    \end{varblock}
+    \begin{lstlisting}[style=MyBash]
+        $ awk '{print $1}' <<< $'A 1 \n B 2 \n C 3'
+        |+A
+        B
+        C+|
+        $ awk '{print $1, $10, $(10)}' <<< "1 2 3 4 5 6 7 8 9 A"
+        |+1 A A+|
+        $ awk '{print $1 "|" $2}' <<< "A:B C::D"
+        |+A:B|C::D+|
+        $ awk 'BEGIN{FS=":"}{print $1 "|" $2}' <<< "A:B C::D"
+        |+A|B C+|
+        $ awk 'BEGIN{FS="::"}{print $1 "|" $2}' <<< "A:B C::D"
+        |+A:B C|D+|
+        $ awk 'BEGIN{FS=":"; OFS="|"}{print $1, $2}' <<< "A:B C::D"
+        |+A|B C+|
+        $ awk 'BEGIN{ORS="|"}{print $1}' <<< $'A 1 \n B 2 \n C 3'
+        |+A|B|C+|  # without final new line
+    \end{lstlisting}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{Variables in \bash|awk| and passing Bash variables to \bash|awk|}
+    \vspace{-3mm}
+    \begin{itemize}
+        \item Strings that do not refer to keyword or to builtin variables/functions in \bash|awk| programs are treated as variables
+        \item \alert{Numeric variables in \bash|awk| are implicitly initialised to 0, use them without worries!}
+        \item The \bash|awk| command-line option \PP{\texttt{-v var=val} sets the \bash|awk| variable} \texttt{var} to the value \texttt{val} \PP{before execution of the program begins}
+        \item The \texttt{-v} option can only set one variable, but it can be used more than once, setting another variable each time
+              \alert{Avoid setting \bash|awk| builtin variables!}
+    \end{itemize}
+    \begin{lstlisting}[style=MyBash, xleftmargin=2mm, xrightmargin=2mm]
+        $ awk 'BEGIN{print uninitialisedVariable}'
+        |++|
+        $ awk 'BEGIN{var++; print var}'
+        |+1+|
+        $ aVar='Hello'
+        $ awk -v hi="${aVar}" -v sum=1 'BEGIN{sum++; print hi " " sum}'
+        |+Hello 2+|
+        $ awk -v index=1 'BEGIN{print index}'
+        |+awk: fatal: cannot use gawk builtin `index' as variable name+|
+    \end{lstlisting}
+\end{frame}
+%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
+\begin{frame}[fragile]{A (very limited) taste of \bash|awk| by examples}
+    \vspace{-1mm}
+    \begin{onlyenv}<1>
+        \begin{lstlisting}[style=MyBash, numbers=none, xleftmargin=3mm, xrightmargin=3mm]
+            $ seq 100 | awk '{sum+=$1}END{print "Gauss answered " sum}'
+            |+Gauss answered 5050+|
+
+            $ shuf -i 1-20 -n 100 -r |
+            > awk '$1>10{high++}END{print "Drawn " high " numbers >10."}'
+            |+Drawn 52 numbers >10.+|
+
+            # Print every line that is longer than 80 characters
+            awk 'length($0) > 80' filename
+
+            # Print the length of the longest input line
+            awk '    { if (length($0) > max) {max = length($0)} }
+                 END { print max }' filename
+
+            # Print every line that has at least one field
+            awk 'NF > 0' filename
+
+            # Count the lines in a file
+            awk 'END { print NR }' filename
+        \end{lstlisting}
+    \end{onlyenv}
+    \begin{onlyenv}<2>
+        \begin{lstlisting}[style=MyBash, numbers=none, xleftmargin=3mm, xrightmargin=3mm, belowskip=-3mm]
+            # Print the even-numbered lines in the data file
+            awk 'NR % 2 == 0' data
+
+            # Sum two columns of a file line by line adding a column
+            awk '{print $1, $2, $1+$2}' data
+
+            # Prepare powers of each column adding columns
+            awk '{
+                    for(field=1; field<=NF; field++){
+                        for(n=1; n<=4; n++){
+                            printf "%f ", $field**n
+                        }
+                    }
+                    printf "\n";
+                 }' data
+        \end{lstlisting}
+        \begin{varblock}{alert}[0.7\textwidth]{}
+            \Large \alert{As you can imagine, \bash|awk| has plenty of features!}
+        \end{varblock}
+    \end{onlyenv}
+    \begin{onlyenv}<3>
+        \begin{lstlisting}[style=MyBash, numbers=none, xleftmargin=3mm, xrightmargin=3mm]
+            # Throwing two dice 1000 times and getting distribution
+            $ paste <(shuf -i 1-6 -n 1000 -r) <(shuf -i 1-6 -n 1000 -r) |
+            > awk '{dice[$1+$2]++}
+            >      END
+            >      {
+            >        for(key in dice){
+            >          printf "P(%2d) ~ %.3f\n", key, dice[key]/NR
+            >        }
+            >      }'
+            |+P( 2) ~ 0.038+|  # 1/36 = 0.028
+            |+P( 3) ~ 0.051+|  # 2/36 = 0.056
+            |+P( 4) ~ 0.081+|  # 3/36 = 0.083
+            |+P( 5) ~ 0.100+|  # 4/36 = 0.111
+            |+P( 6) ~ 0.156+|  # 5/36 = 0.139
+            |+P( 7) ~ 0.161+|  # 6/36 = 0.167
+            |+P( 8) ~ 0.148+|  # 5/36 = 0.139
+            |+P( 9) ~ 0.115+|  # 4/36 = 0.111
+            |+P(10) ~ 0.070+|  # 3/36 = 0.083
+            |+P(11) ~ 0.052+|  # 2/36 = 0.056
+            |+P(12) ~ 0.028+|  # 1/36 = 0.028
+        \end{lstlisting}
+    \end{onlyenv}
+\end{frame}
+
