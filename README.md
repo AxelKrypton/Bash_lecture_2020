@@ -29,15 +29,15 @@ Of course, its files have to be put in the correct place, e.g. in `~/texmf/tex/l
 ### Material of the lecture
 
 - [ ] Lecture slides
-  - [ ] Overview
-  - [ ] Day 1
+  - [X] Overview
+  - [X] Day 1
   - [ ] Day 2
   - [ ] Day 3
   - [ ] Day 4
   - [ ] Day 5
 
 - [ ] Exercises
-  - [ ] Day 1
+  - [X] Day 1
   - [ ] Day 2
   - [ ] Day 3
   - [ ] Day 4
